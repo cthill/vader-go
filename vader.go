@@ -169,11 +169,11 @@ func (ST SentiText) Sentiments() []float64 {
 				}
 			}
 		}
-		if i > 3 {
-			b, c, _ := triplet(wesl[i-3 : i])
+		if i > 2 {
+			a, b, _ := triplet(wesl[i-2 : i])
 			// _least_check
-			if i > 1 && !ST.L.Rates(b) && b == "least" {
-				if c != "at" && c != "very" {
+			if i > 1 && !ST.L.Rates(a) && a == "least" {
+				if b != "at" && b != "very" {
 					valence *= absolutes.NScalar
 				}
 			}
@@ -239,12 +239,12 @@ func (ST SentiText) Sift(S []float64) (P Polarity) {
 	qmc := 0
 	for _, t := range ST.raw {
 		for _, c := range t {
-			if epc == 4 && qmc == 4 {
-				break
-			} else if c == '?' {
+			if c == '?' && qmc < 4 {
 				qmc++
-			} else if c == '!' {
+			} else if c == '!' && epc < 4 {
 				epc++
+			} else {
+				break
 			}
 		}
 	}
