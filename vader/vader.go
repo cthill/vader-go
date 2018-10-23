@@ -4,11 +4,6 @@ import (
 	"github.com/iseurie/vader-go/absolutes"
 	"math"
 	"strings"
-	"unicode"
-
-	"golang.org/x/text/runes"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 )
 
 func sgn(x float64) float64 {
@@ -16,10 +11,6 @@ func sgn(x float64) float64 {
 		return -1
 	}
 	return 1
-}
-
-func normscore(score float64) float64 {
-	return score
 }
 
 func negate(t string) bool {
