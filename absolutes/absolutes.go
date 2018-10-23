@@ -187,12 +187,20 @@ var boostDn = map[string]struct{}{
 func Boost(t string) float64 {
 	k := strings.ToLower(t)
 	if _, ok := boostUp[k]; ok {
-		return boostIncr
+		return boostIncr, ok
 	}
 	if _, ok := boostDn[k]; ok {
-		return boostDecr
+		return boostDecr, ok
 	}
-	return 0
+	return 0, true
+}
+
+// Returns whether a given token has a boost entry.
+func IsBoosted(t string) bool {
+	k := strings.ToLower(t)
+	_, u := boostUp[k]
+	_, d := boostDn[k]
+	return u || d
 }
 
 // Negate returns whether a given term constitutes a negation.

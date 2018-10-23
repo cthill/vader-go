@@ -11,22 +11,49 @@ import (
 	"unicode"
 )
 
-var b2f = map[bool]float64{true: 1, false: -1}
-
 func sgn(x float64) float64 {
+	btf := map[bool]float64{true: 1, false: -1}
 	return b2f[math.Signbit(x)]
 }
 
+func strp(raw string) string {
+	strip :=
+		transform.Chain(
+			norm.NFD,
+			runes.Remove(unicode.IsPunct),
+			runes.Remove(unicode.In(unicode.Mn)),
+			norm.NFC)
+	return transform.String(strip, raw)
+}
+
+// Tokens represents a tokenized document.
 type Tokens []prose.Token
 
-func (T Tokens) OfRaw(s string) {
+// OfRaw maps a raw string onto a tokenized document.
+func (T Tokens) OfRaw(s string, tag bool) {
 	docopt := prose.DocOpt{
 		UsingModel:       false,
 		WithSegmentation: false,
-		WithTagging:      true,
+		WithTagging:      tag,
 		WithTokenization: true,
 	}
 	T = prose.NewDocument(s).Tokens()
+}
+
+func (T Tokens) Strip() {
+	rtn := make([]string, len(T), len(T))
+	for i, t := range T {
+		T[i].Text = strp(t.Text)
+	}
+}
+
+func (T Tokens) Stripped() string {
+	var S strings.Builder
+	for _, t := range T {
+		S.WriteByte(' ')
+		S.WriteString(strp(t.Text))
+	}
+	return S.String()
 }
 
 // Negated returns whether the receiver contains any negations.
@@ -56,49 +83,6 @@ func (T Tokens) ClDiff() bool {
 	return 0 < caseDifferential < len(T)
 }
 
-// SentiText is an intermediate struct for evaluating sentiment of a given document.
-type SentiText struct {
-	// The cartesian product of absolutes.Punctuation the set of tokens in
-	// the list, permuting each token by prepending and appending punctuation.
-	w2wp map[string]string
-
-	// Remove leading and trailing punctuation, but leave contractions and emoticons
-	wes string
-
-	// Keep the raw input
-	raw Tokens
-
-	// Lexicon is the structure's lexicon
-	Lexicon
-
-	capDiff bool
-}
-
-// NewSentiText constructs a new sentiment evaluation model from the given
-// parameters.
-func NewSentiText(raw string, lexicon Lexicon) (rtn SentiText) {
-	rtn.raw.OfRaw(raw)
-	rtn.w2wp = make(map[string]string, len(T)*len(absolutes.Punctuation)*2)
-	strip := runes.Remove(
-		transform.Chain(
-			runes.Map(unicode.ToLower),
-			runes.Remove(unicode.IsPunct)))
-	var wes strings.Builder
-	for _, t := range rtn.raw {
-		if t.Tag != "SYM" {
-			k := transform.String(strip, t.Text)
-			for p := range absolutes.Punctuation {
-				rtn.w2wp[k+p] = k
-				rtn.w2wp[p+k] = k
-			}
-			wes.WriteString(k)
-			wes.WriteByte(' ')
-		}
-	}
-	rtn.wes = wes
-	rtn.Lexicon = lexicon
-}
-
 // Valence represents a sentiment score.
 type Valence float64
 
@@ -113,7 +97,7 @@ func (v Valence) Norm() float64 {
 }
 
 // Chain negates or affirms the valence based on the last word.
-func (v Valence) chain(T Tokens, i int) float64 {
+func (v Valence) SclrSgn(T Tokens, i int) float64 {
 	// check the capitalization differential
 	capdiff := T.ClDiff()
 	scalar := absolutes.Boost(t)
@@ -123,6 +107,8 @@ func (v Valence) chain(T Tokens, i int) float64 {
 	}
 	return scalar
 }
+
+func (v Valence) ButCk(prev 
 
 // TODO: Implement actual heuristics and checks for sentiment analysis
 func (v Valence) Gauge(doc Tokens) {
