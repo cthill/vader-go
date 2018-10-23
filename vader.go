@@ -205,7 +205,7 @@ type Sentiment struct {
 }
 
 // ScoreValence returns Sentiment of the text.
-func (ST SentiText) ScoreValence() (PS Polarity) {
+func (ST SentiText) ScoreValence() (S Sentiment) {
 	// score_valence
 	Σ := 0
 	for _, x := range rtn {
@@ -232,10 +232,11 @@ func (ST SentiText) ScoreValence() (PS Polarity) {
 	} else {
 		pEmph += 0.96
 	}
-	PS.Polarity = ST.Sift()
-	PS.Compound = Σ / math.Sqrt((Σ*Σ)+15)
-	PS.Compound = math.Max(score, -1)
-	PS.Compound = math.Min(score, 1)
+	S.Polarity = ST.Sift()
+	S.Compound = Σ / math.Sqrt((Σ*Σ)+15)
+	S.Compound = math.Max(score, -1)
+	S.Compound = math.Min(score, 1)
+	return
 }
 
 // Sift obtains polarity ratings for the text.

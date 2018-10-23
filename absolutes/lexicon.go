@@ -1,7 +1,6 @@
-package vader
+package absolutes
 
 import (
-	"github.com/iseurie/vader-go/absolutes"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
