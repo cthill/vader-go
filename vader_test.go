@@ -23,8 +23,7 @@ func TestTrickySentences(t *testing.T) {
 		"Not such a badass after all.",        // Capitalized negation with slang
 		"Without a doubt, an excellent idea.", // "without {any} doubt" as negation
 	}
-	perceived := [...]int{-1, 1, -1, 1, 1, 1, 1, 1, 1, -1, -1, 1}
-	measured := make([]float64, cap(perceived), cap(perceived))
+	perceived := [...]int{-1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1}
 	L := absolutes.DefaultLexicon
 	fmt.Println("#. cmpd; neg.; pos.; neu.: input")
 	for i, s := range tricky {
@@ -32,10 +31,10 @@ func TestTrickySentences(t *testing.T) {
 		S := st.ScoreValence()
 		P := S.Polarity
 		fmt.Printf(
-			"%d. %.3f; %.3f; %.3f; %.3f: %s\n",
+			"%02d. %02.3f; %02.3f; %02.3f; %02.3f: %s\n",
 			i+1, S.Compound, P.Negative, P.Positive, P.Neutral, s)
 		// signimismatch
-		if S.Compound*float64(measured[i]) < 0 {
+		if S.Compound*float64(perceived[i]) < 0 {
 			t.Errorf("Negation test received a mismatch on #%d: ``%s''.",
 				i+1, tricky[i])
 		}

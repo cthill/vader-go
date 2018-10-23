@@ -29,8 +29,12 @@ func negated(raw []string) bool {
 
 func triplet(S []string) (a, b, c string) {
 	var T [3]string
-	for i := 0; i < 2 && i < len(S); i++ {
-		T[i] = S[i]
+	for i := 0; i < 2; i++ {
+		if i < len(S)-1 {
+			T[i] = S[i]
+		} else {
+			T[i] = ""
+		}
 	}
 	a, b, c = T[0], T[1], T[2]
 	return
@@ -165,17 +169,19 @@ func (ST SentiText) Sentiments() []float64 {
 				}
 			}
 		}
-		b, c, _ := triplet(wesl[i-3 : i])
-		// _least_check
-		if i > 1 && !ST.L.Rates(b) && b == "least" {
-			if c != "at" && c != "very" {
-				valence *= absolutes.NScalar
+		if i > 3 {
+			b, c, _ := triplet(wesl[i-3 : i])
+			// _least_check
+			if i > 1 && !ST.L.Rates(b) && b == "least" {
+				if c != "at" && c != "very" {
+					valence *= absolutes.NScalar
+				}
 			}
 		}
 		rtn[i] = valence
 	}
 	// _but_check
-	for bi := range rtn {
+	for bi := range wesl {
 		// we got one!
 		if wesl[bi] == "but" {
 			for si := range rtn {
@@ -206,11 +212,12 @@ type Sentiment struct {
 func (ST SentiText) ScoreValence() (S Sentiment) {
 	// score_valence
 	var Σ float64
-	for _, x := range ST.Sentiments() {
+	V := ST.Sentiments()
+	for _, x := range V {
 		Σ += x
 	}
 
-	S.Polarity = ST.Sift()
+	S.Polarity = ST.Sift(V)
 	S.Compound = Σ / math.Sqrt((Σ*Σ)+15)
 	S.Compound = math.Max(Σ, -1)
 	S.Compound = math.Min(Σ, 1)
@@ -218,8 +225,7 @@ func (ST SentiText) ScoreValence() (S Sentiment) {
 }
 
 // Sift obtains polarity ratings for the text.
-func (ST SentiText) Sift() (P Polarity) {
-	S := ST.Sentiments()
+func (ST SentiText) Sift(S []float64) (P Polarity) {
 	for _, x := range S {
 		if x > 0 {
 			P.Positive += x
