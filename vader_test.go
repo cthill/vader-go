@@ -3,6 +3,7 @@ package vader
 import (
 	"fmt"
 	"github.com/iseurie/vader-go"
+	"github.com/iseurie/vader-go/absolutes"
 	"testing"
 )
 
@@ -24,16 +25,17 @@ func TestTrickySentences(t *testing.T) {
 	}
 	perceived := [...]int{-1, 1, -1, 1, 1, 1, 1, 1, 1, -1, -1, 1}
 	measured := make([]float64, cap(perceived), cap(perceived))
+	L := absolutes.DefaultLexicon
 	fmt.Println("#. cmpd; neg.; pos.; neu.: input")
-	for _, s := range tricky {
-		st := vader.NewSentiText(s)
+	for i, s := range tricky {
+		st := vader.NewSentiText(s, &L)
 		S := st.ScoreValence()
 		P := S.Polarity
 		fmt.Printf(
 			"%d. %.3f; %.3f; %.3f; %.3f: %s\n",
-			i+1, P.Compound, S.Negative, S.Positive, S.Neutral, s)
-		// sigm mismatch
-		if P.Compound*float64(measured) < 0 {
+			i+1, S.Compound, P.Negative, P.Positive, P.Neutral, s)
+		// signimismatch
+		if S.Compound*float64(measured[i]) < 0 {
 			t.Errorf("Negation test received a mismatch on #%d: ``%s''.",
 				i+1, tricky[i])
 		}

@@ -1,7 +1,6 @@
 package absolutes
 
 import (
-	"github.com/iseurie/vader-go"
 	"strings"
 )
 
@@ -187,12 +186,12 @@ var boostDn = map[string]struct{}{
 func Boost(t string) float64 {
 	k := strings.ToLower(t)
 	if _, ok := boostUp[k]; ok {
-		return boostIncr, ok
+		return boostIncr
 	}
 	if _, ok := boostDn[k]; ok {
-		return boostDecr, ok
+		return boostDecr
 	}
-	return 0, true
+	return 0
 }
 
 // IsBoosted returns whether a given token has a boost entry.
