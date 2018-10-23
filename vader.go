@@ -129,7 +129,7 @@ func (ST SentiText) Sentiments() []float64 {
 			rtn = append(rtn, valence)
 		}
 		for j := 0; j < 2; j++ {
-			if i <= j || ST.L.Rates(wesl[i-j+1]) {
+			if i <= j || ST.L.Rates(wesl[i-(j+1)]) {
 				continue
 			}
 			// scalar_inc_dec
