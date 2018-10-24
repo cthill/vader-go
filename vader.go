@@ -11,6 +11,8 @@ import (
 	"golang.org/x/text/transform"
 )
 
+const debug = false
+
 func sgn(x float64) float64 {
 	if x < 0 {
 		return -1
@@ -60,17 +62,18 @@ func negationCk(valence float64, V []string) float64 {
 	nst := func(a, b string) bool {
 		return a == "never" && (b == "so" || b == "this")
 	}
-	wdt := func(a, b string) bool {
-		return a == "without" && b == "doubt"
-	}
+	// wdt := func(a, b string) bool {
+	// 	return a == "without" && b == "doubt"
+	// }
 	a, b, c := triplet(V)
 	if negated([]string{a, b, c}) {
 		return valence * absolutes.NScalar
 	} else if nst(a, b) || nst(b, c) {
 		return valence * 5 / 4
-	} else if wdt(a, b) || wdt(a, c) {
-		return valence
 	}
+	// else if wdt(a, b) || wdt(a, c) {
+	// 	return valence
+	// }
 	return valence
 }
 
@@ -184,7 +187,7 @@ func (ST SentiText) Sentiments() []float64 {
 			iCk := min(i-3, 0)
 			b, c, d := triplet(wesl[iCk:i])
 			a := wesl[i]
-			if i > 3 {
+			if i > 3 && debug {
 				fmt.Printf("{a b c d} = %v\n", []string{a, b, c, d})
 				fmt.Printf(" = %#v\n", wesl[i-3:i+1])
 			}
