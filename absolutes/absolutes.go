@@ -198,8 +198,11 @@ func Boost(t string) float64 {
 func IsBoosted(t string) bool {
 	k := strings.ToLower(t)
 	_, u := boostUp[k]
+	if u {
+		return true
+	}
 	_, d := boostDn[k]
-	return u || d
+	return d
 }
 
 // Negate returns whether a given term constitutes a negation.
