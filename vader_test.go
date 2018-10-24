@@ -33,7 +33,7 @@ var stockRatings = [...]float64{
 var L = &absolutes.DefaultLexicon
 
 func TestTrickySentences(t *testing.T) {
-	fmt.Println("##. cmpd; neg.; pos.; neu.: input")
+	fmt.Println("##. cpd.; neg.; pos.; neu.: input")
 	tolerance := 0.10
 	for i, s := range tricky {
 		st := NewSentiText(s, L)
