@@ -41,8 +41,8 @@ func TestTrickySentences(t *testing.T) {
 		P := S.Polarity
 		err := math.Abs(S.Compound - stockRatings[i])
 		if err > tolerance {
-			t.Errorf("Compound test error lies %f beyond tolerances on #%d: ``%s''.",
-				err, i+1, tricky[i])
+			t.Errorf("#%02d: Error lies %0.2f beyond tolerances",
+				i+1, err)
 		} else {
 			fmt.Printf(
 				"%02d. %02.3f; %02.3f; %02.3f; %02.3f: %s\n",
@@ -54,7 +54,6 @@ func TestTrickySentences(t *testing.T) {
 func BenchmarkSTConstruction(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		si := tricky[rand.Int()%len(tricky)]
-		b.ResetTimer()
 		NewSentiText(si, L)
 	}
 }
@@ -67,7 +66,6 @@ func BenchmarkSTScoring(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		st := S[rand.Int()%len(tricky)]
-		b.ResetTimer()
 		st.ScoreValence()
 	}
 }
