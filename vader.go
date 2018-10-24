@@ -38,50 +38,42 @@ func negatep(t string) bool {
 
 func negated(raw []string) bool {
 	for i, t := range raw {
-		if negatep(t) || (t == "least" && i > 0 && raw[i-1] != "at") {
+		if negatep(t) || (i > 0 && t == "least" && raw[i-1] != "at") {
 			return true
 		}
 	}
 	return false
 }
 
-func triplet(S []string) (a, b, c string) {
-	var T [3]string
-	for i := 0; i < 2; i++ {
-		if i < len(S)-1 {
-			T[i] = S[i]
-		} else {
-			T[i] = ""
+func backfill(src []string, i int, out ...*string) {
+	for d := len(out); d > 0; d-- {
+		j := i - d
+		if j < 0 || j > len(src)-1 {
+			break
+		}
+		if out[d-1] != nil {
+			*out[d-1] = src[j]
 		}
 	}
-	a, b, c = T[0], T[1], T[2]
-	return
 }
 
-func negationCk(valence float64, V []string) float64 {
-	nst := func(a, b string) bool {
-		return a == "never" && (b == "so" || b == "this")
+func fillback(src []string, i int, out ...*string) {
+	for d := 0; d < len(out)-1; d++ {
+		j := i + d
+		if j > len(src)-1 {
+			break
+		}
+		if out[d] != nil {
+			*out[d] = src[j]
+		}
 	}
-	// wdt := func(a, b string) bool {
-	// 	return a == "without" && b == "doubt"
-	// }
-	a, b, c := triplet(V)
-	if negated([]string{a, b, c}) {
-		return valence * absolutes.NScalar
-	} else if nst(a, b) || nst(b, c) {
-		return valence * 5 / 4
-	}
-	// else if wdt(a, b) || wdt(a, c) {
-	// 	return valence
-	// }
-	return valence
 }
 
 // SentiText is an intermediate struct used to evaluate sentiment.
 type SentiText struct {
-	raw, wes []string
-	acdiff   bool
-	L        *absolutes.Lexicon
+	raw, wes, wesl []string
+	acdiff         bool
+	L              *absolutes.Lexicon
 }
 
 // NewSentiText constructs a new document from which to measure sentiment.
@@ -93,7 +85,8 @@ func NewSentiText(raw string, L *absolutes.Lexicon) (new SentiText) {
 		}
 	}
 	new.raw = strings.Fields(strip(raw))
-	new.wes = new.mkwes(strings.Fields(raw))
+	new.wes = new.mkwes(new.raw)
+	new.wesl = new.mkwesl(new.raw)
 	clc := 0
 	for _, t := range new.raw {
 		if strings.ToUpper(t) == t {
@@ -105,26 +98,134 @@ func NewSentiText(raw string, L *absolutes.Lexicon) (new SentiText) {
 	return new
 }
 
+func (ST SentiText) scalarIncDec(t string, valence float64) float64 {
+	tl := strings.ToLower(t)
+	scalar := sgn(valence) * absolutes.Boost(tl)
+	if ST.acdiff && strings.ToUpper(t) == t {
+		scalar += sgn(valence) * absolutes.CScalar
+	}
+	return scalar
+}
+
+func (ST SentiText) negationCk(valence float64, i int) float64 {
+	nst := func(a, b string) bool {
+		return a == "never" && (b == "so" || b == "this")
+	}
+	// wdt := func(a, b string) bool {
+	// 	return a == "without" && b == "doubt"
+	// }
+	var a, b, c string
+	backfill(ST.wesl, i, nil, &a, &b, &c)
+	if negated([]string{a, b, c}) {
+		valence *= absolutes.NScalar
+	}
+	if nst(a, b) || nst(b, c) || nst(a, c) {
+		return valence * 5 / 4
+	}
+	// else if wdt(a, b) || wdt(a, c) {
+	// 	return valence
+	// }
+	return valence
+}
+
+func (ST SentiText) leastCk(valence float64, i int) float64 {
+	var a, b string
+	backfill(ST.wesl, i, nil, &a, &b)
+	if !ST.L.Rates(a) && a == "least" &&
+		b != "very" && b != "at" {
+		valence *= absolutes.NScalar
+	}
+	return valence
+}
+
+func (ST SentiText) butCk(sentiments []float64) {
+	for bi, t := range ST.wesl {
+		if t == "but" {
+			for si := range sentiments {
+				if si < bi {
+					sentiments[si] *= 0.5
+				} else if si > bi {
+					sentiments[si] *= 1.5
+				}
+			}
+		}
+	}
+}
+
+func (ST SentiText) specialIdiomsCk(valence float64, i int) float64 {
+	var a, b, c, d string
+	backfill(ST.wesl, i, &a, &b, &c, &d)
+	trigrams := []string{
+		strings.Join([]string{c, b, a}, " "),
+		strings.Join([]string{d, c, b}, " "),
+	}
+	bigrams := []string{
+		strings.Join([]string{b, a}, " "),
+		strings.Join([]string{c, b}, " "),
+		strings.Join([]string{d, c}, " "),
+	}
+	switch {
+	case len(ST.raw)-1 > i+1:
+		trigrams = append(trigrams, strings.Join(ST.wesl[i:i+3], " "))
+		fallthrough
+	case len(ST.raw)-1 > i:
+		bigrams = append(bigrams, strings.Join(ST.wesl[i:i+2], " "))
+	}
+	for _, k := range bigrams {
+		valence = absolutes.SpecialCaseIdioms[k]
+		valence += absolutes.Boost(k)
+	}
+	for _, k := range trigrams {
+		valence = absolutes.SpecialCaseIdioms[k]
+	}
+	return valence
+}
+
+func (ST SentiText) sentimentValence(valence float64, i int, sentiments []float64) {
+	t := ST.wes[i]
+	defer func() {
+		sentiments = append(sentiments, valence)
+	}()
+	if !L.Rates(t) {
+		return
+	}
+	if strings.ToUpper(t) == t && ST.acdiff {
+		valence += sgn(valence) * absolutes.CScalar
+	}
+	for j := 0; j < 2; j++ {
+		s := ST.scalarIncDec(ST.wes[i-(j+1)], valence)
+		// distance damping
+		s *= (1 + (float64(j-2) / 20))
+		valence += s
+		valence = ST.negationCk(valence, i)
+		if j == 2 {
+			valence = ST.specialIdiomsCk(valence, i)
+		}
+	}
+	valence = ST.leastCk(valence, i)
+}
+
 func (ST SentiText) mkwes(raw []string) []string {
 	W := make([]string, len(raw), len(raw))
 	p2w := make(map[string]string, len(W))
-	for i, t := range raw {
+	for _, t := range raw {
 		if len(t) < 2 {
 			continue
 		}
-		if _, ok := p2w[t+p2w[absolutes.Punctuation[0]]]; !ok {
+		k := strip(t)
+		if _, ok := p2w[k+p2w[absolutes.Punctuation[0]]]; !ok {
 			for _, p := range absolutes.Punctuation {
-				p2w[t+p] = t
-				p2w[p+t] = t
+				p2w[k+p] = t
+				p2w[p+k] = t
 			}
 		}
-		W[i] = p2w[t]
+		W = append(W, p2w[k])
 	}
 	return W
 }
 
-func (ST SentiText) wesl() []string {
-	T := make([]string, len(ST.raw), len(ST.raw))
+func (ST SentiText) mkwesl(raw []string) []string {
+	T := make([]string, len(raw), len(raw))
 	for i := range T {
 		T[i] = strings.ToLower(T[i])
 	}
@@ -154,90 +255,20 @@ func (ST SentiText) punctEmph() float64 {
 	return pEmph
 }
 
-// Sentiments attempts to gauge the text's valence sentiments.
-func (ST SentiText) Sentiments() []float64 {
+// Polarities attempts to gauges the text's valence sentiments.
+func (ST SentiText) Polarities() []float64 {
 	rtn := make([]float64, len(ST.raw), len(ST.raw))
-	wesl := ST.wesl()
-	for i, t := range ST.wes {
-		capp := strings.ToUpper(t) == t && ST.acdiff
-		tl := strings.ToLower(t)
-		valence := L.Rating(tl)
-		if absolutes.IsBoosted(tl) ||
-			i < len(ST.wes)-1 ||
-			(tl == "kind" && strings.ToLower(ST.wes[i+1]) == "of") ||
-			!ST.L.Rates(tl) {
-			// update valence
+	for i, t := range ST.wesl {
+		var valence float64
+		if absolutes.IsBoosted(t) ||
+			(i < len(ST.wesl)-1 && strings.ToLower(t) == "kind" &&
+				strings.ToLower(ST.wesl[i+1]) == "of") {
 			rtn = append(rtn, valence)
 			continue
 		}
-		// sentiment_valence
-		for j := 0; j < 2; j++ {
-			if i <= j || ST.L.Rates(wesl[i-(j+1)]) {
-				continue
-			}
-			// scalar_inc_dec
-			scalar := sgn(valence) * absolutes.Boost(tl)
-			if capp {
-				scalar += sgn(valence) * absolutes.CScalar
-			}
-			// distance damping
-			scalar *= (1 + (float64(j-2) / 20))
-			valence += scalar
-			// negation_check
-			iCk := min(i-3, 0)
-			b, c, d := triplet(wesl[iCk:i])
-			a := wesl[i]
-			if i > 3 && debug {
-				fmt.Printf("{a b c d} = %v\n", []string{a, b, c, d})
-				fmt.Printf(" = %#v\n", wesl[i-3:i+1])
-			}
-			valence = negationCk(valence, wesl[iCk:i])
-			if j == 2 {
-				// _special_idioms_check
-				trigrams := [][]string{
-					{c, b, a},
-					{d, c, b},
-				}
-				bigrams := [][]string{
-					{b, a},
-					{c, b},
-					{d, c},
-				}
-				if len(wesl)-1 > i {
-					bigrams = append(bigrams, []string{a, b})
-					trigrams = append(trigrams, []string{a, b, c})
-				}
-				for _, seq := range append(bigrams, trigrams...) {
-					s := strings.Join(seq, " ")
-					// check for boosting/dampening & sentiment-laden idioms
-					valence += absolutes.Boost(s)
-					if v, ok := absolutes.SentimentLadenIdioms[s]; ok {
-						valence += v
-					}
-				}
-			}
-		}
-		j := min(i-2, 0)
-		a, b, _ := triplet(wesl[j:i])
-		// _least_check
-		if !ST.L.Rates(a) && a == "least" && b != "at" {
-			rtn[i] *= absolutes.NScalar
-		}
-		rtn[i] = valence
+		ST.sentimentValence(valence, i, rtn)
 	}
-	// _but_check
-	for bi := range wesl {
-		// we got one!
-		if wesl[bi] == "but" {
-			for si := range rtn {
-				if si < bi {
-					rtn[si] *= 0.5
-				} else if si > bi {
-					rtn[si] *= 1.5
-				}
-			}
-		}
-	}
+	ST.butCk(rtn)
 	return rtn
 }
 
@@ -253,25 +284,7 @@ type Sentiment struct {
 	Compound float64
 }
 
-// ScoreValence returns Sentiment of the text.
-func (ST SentiText) ScoreValence() (S Sentiment) {
-	// score_valence
-	var Σ float64
-	V := ST.Sentiments()
-	for _, x := range V {
-		Σ += x
-	}
-
-	S.Polarity = ST.Sift(V)
-	// Normalize
-	S.Compound = Σ / math.Sqrt((Σ*Σ)+15)
-	S.Compound = math.Max(Σ, -1)
-	S.Compound = math.Min(Σ, 1)
-	return
-}
-
-// Sift obtains polarity ratings for the text.
-func (ST SentiText) Sift(S []float64) (P Polarity) {
+func (ST SentiText) sift(S []float64) (P Polarity) {
 	for _, x := range S {
 		if x > 0 {
 			P.Positive += (x + 1)
@@ -292,5 +305,21 @@ func (ST SentiText) Sift(S []float64) (P Polarity) {
 	P.Positive /= total
 	P.Negative /= total
 	P.Neutral /= total
+	return
+}
+
+// ScoreValence returns Sentiment of the text.
+func (ST SentiText) ScoreValence() (S Sentiment) {
+	var Σ float64
+	V := ST.Polarities()
+	for _, x := range V {
+		Σ += x
+	}
+
+	S.Polarity = ST.sift(V)
+	// Normalize
+	S.Compound = Σ / math.Sqrt((Σ*Σ)+15)
+	S.Compound = math.Max(Σ, -1)
+	S.Compound = math.Min(Σ, 1)
 	return
 }
