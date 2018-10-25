@@ -27,6 +27,11 @@ func min(a, b int) int {
 	return b
 }
 
+func round(x float64, n int) float64 {
+	a := math.Pow10(n)
+	return math.Round(x*a) / a
+}
+
 func strip(raw string) string {
 	rtn, _, _ := transform.String(runes.Remove(runes.In(unicode.Punct)), raw)
 	return rtn
@@ -181,13 +186,10 @@ func (ST SentiText) specialIdiomsCk(valence float64, i int) float64 {
 	return valence
 }
 
-func (ST SentiText) sentimentValence(valence float64, i int, sentiments []float64) {
+func (ST SentiText) valenceSentiment(valence float64, i int, sentiments []float64) float64 {
 	t := ST.wes[i]
-	defer func() {
-		sentiments = append(sentiments, valence)
-	}()
 	if !L.Rates(t) {
-		return
+		return valence
 	}
 	if strings.ToUpper(t) == t && ST.acdiff {
 		valence += sgn(valence) * absolutes.CScalar
@@ -203,6 +205,7 @@ func (ST SentiText) sentimentValence(valence float64, i int, sentiments []float6
 		}
 	}
 	valence = ST.leastCk(valence, i)
+	return valence
 }
 
 func (ST SentiText) mkwes(raw []string) []string {
@@ -255,7 +258,7 @@ func (ST SentiText) punctEmph() float64 {
 	return pEmph
 }
 
-// Polarities attempts to gauges the text's valence sentiments.
+// Polarities attempts to gauge the text's valence sentiments.
 func (ST SentiText) Polarities() []float64 {
 	rtn := make([]float64, len(ST.raw), len(ST.raw))
 	for i, t := range ST.wesl {
@@ -266,7 +269,7 @@ func (ST SentiText) Polarities() []float64 {
 			rtn = append(rtn, valence)
 			continue
 		}
-		ST.sentimentValence(valence, i, rtn)
+		rtn = append(rtn, ST.valenceSentiment(valence, i, rtn))
 	}
 	ST.butCk(rtn)
 	return rtn
@@ -301,10 +304,6 @@ func (ST SentiText) sift(S []float64) (P Polarity) {
 	} else if d < 0 {
 		P.Negative -= pEmph
 	}
-	total := P.Positive + math.Abs(P.Negative) + P.Neutral
-	P.Positive /= total
-	P.Negative /= total
-	P.Neutral /= total
 	return
 }
 
@@ -315,11 +314,21 @@ func (ST SentiText) ScoreValence() (S Sentiment) {
 	for _, x := range V {
 		Σ += x
 	}
+	P := ST.sift(V)
+	total := P.Positive - P.Negative + P.Neutral
+	P.Negative /= -total
+	P.Positive /= total
+	P.Neutral /= total
+	S.Polarity = P
 
-	S.Polarity = ST.sift(V)
 	// Normalize
 	S.Compound = Σ / math.Sqrt((Σ*Σ)+15)
 	S.Compound = math.Max(Σ, -1)
 	S.Compound = math.Min(Σ, 1)
+
+	S.Compound = round(S.Compound, 4)
+	P.Negative = round(P.Negative, 3)
+	P.Positive = round(P.Positive, 3)
+	P.Neutral = round(P.Neutral, 3)
 	return
 }
