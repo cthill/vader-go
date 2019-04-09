@@ -161,7 +161,7 @@ func (ST SentiText) Sentiments() []float64 {
 	for i, t := range ST.wes {
 		capp := strings.ToUpper(t) == t && ST.acdiff
 		tl := strings.ToLower(t)
-		valence := L.Rating(tl)
+		valence := ST.L.Rating(tl)
 		if absolutes.IsBoosted(tl) ||
 			i < len(ST.wes)-1 ||
 			(tl == "kind" && strings.ToLower(ST.wes[i+1]) == "of") ||
