@@ -2,7 +2,7 @@ package vader
 
 import (
 	"fmt"
-	"github.com/iseurie/vader-go/absolutes"
+	"github.com/cthill/vader-go/absolutes"
 	"math"
 	"strings"
 	"unicode"
